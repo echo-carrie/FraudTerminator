@@ -43,7 +43,7 @@ if __name__ == "__main__":
     count = 1
     with open("whitelist.txt", "r") as f:
         lines = f.readlines()
-        for line in lines:
+        for line in lines[0:1000]:
             package_name = line.strip()
             count += 1
             map3gram_kind[package_name] = crawl_mogua(package_name)

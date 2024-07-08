@@ -78,6 +78,7 @@ def get_threat_analysis(id):
     response = requests.request("GET", url, headers=q_headers, data={})
     return response.json()
 
+
 @app.route('/reports/get', methods=['GET'])
 def app_info():
     id = str(request.args.get('id'))
@@ -106,6 +107,7 @@ def app_info():
     md5 = hashlib.md5(open(id + '.apk', 'rb').read()).hexdigest()
 
     return jsonify({
+        'qid': id,
         'application_name': application_name,
         'package_name': package_name,
         'md5': md5,
