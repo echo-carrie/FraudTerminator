@@ -1,7 +1,6 @@
 # pip3 install androguard
 import hashlib
 import os
-import json
 
 from androguard.core.apk import APK
 # flask
