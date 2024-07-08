@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 
 # 上传文件
-@app.route('/upload', methods=['POST'])
+@app.route('/files/upload', methods=['POST'])
 def upload():
     if request.method == 'POST':
         f = request.files['file']
@@ -19,12 +19,12 @@ def upload():
         f.filename = fileId + '.apk'
         f.save(f.filename)
         # 返回apk_path
-        return jsonify({'apk_path': f.filename})
+        return jsonify({'id': f.filename})
 
 
-@app.route('/app_info', methods=['GET'])
+@app.route('/reports/get', methods=['GET'])
 def app_info():
-    apk_path = str(request.args.get('apk_path'))
+    apk_path = str(request.args.get('id'))
     apk = APK(apk_path)
     package_name = apk.get_package()
     application_name = apk.get_app_name()
