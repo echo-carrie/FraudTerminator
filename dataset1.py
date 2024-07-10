@@ -2,7 +2,11 @@ import hashlib
 from collections import defaultdict, Counter
 import os
 import pandas as pd
-from androguard.core.bytecodes import apk
+
+# 新版已经把APK模块移到了androguard.core中
+# from androguard.core.bytecodes import apk
+
+from androguard.core import apk
 
 # 定义类别和对应的目录
 categories = ["sex", "black", "gamble", "scam", "white"]
