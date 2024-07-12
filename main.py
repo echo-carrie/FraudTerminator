@@ -1,6 +1,7 @@
 # pip3 install androguard
 import hashlib
 import os
+from flask_cors import CORS
 
 from androguard.core.apk import APK
 # flask
@@ -19,6 +20,7 @@ reports_collection = db['reports']
 lists_collection = db['list']
 
 app = Flask(__name__)
+CORS(app)
 
 
 class JSONEncoder(json.JSONEncoder):
