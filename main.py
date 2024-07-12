@@ -4,11 +4,40 @@ import os
 
 from androguard.core.apk import APK
 # flask
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import random
 import requests
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+import json
+
+# 连接mongodb数据库
+client = MongoClient('mongodb://root:mongodb@m1.oboard.eu.org:27017/')
+db = client['fraud_terminator']
+
+reports_collection = db['reports']
+lists_collection = db['list']
 
 app = Flask(__name__)
+
+
+class JSONEncoder(json.JSONEncoder):
+    """
+    解决TypeError: Object of type 'ObjectId' is not JSON serializable
+    """
+
+    # ensure_ascii解决中文乱码问题，根据自己情况天假
+    def __init__(self, ensure_ascii=False):
+        super().__init__(ensure_ascii=False)
+
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
+
+
+# 解决TypeError: Object of type 'ObjectId' is not JSON serializable
+jsonify = JSONEncoder(ensure_ascii=True).encode
 
 q_headers = {
     'Accept': 'application/json, text/plain, */*',
@@ -120,6 +149,66 @@ def app_info():
         'static_analysis': get_static_analysis(id),
         'threat_analysis': get_threat_analysis(id)
     })
+
+
+# 名单部分
+# GET /api/lists/search?name={appName}&type={md5 | name | package}：通过md5、app名称、包名、搜索软件包
+#
+# GET /api/lists/whitelist：获取白名单列表。
+# GET /api/lists/blacklist：获取黑名单列表。
+#
+# POST /api/lists/add：添加软件包到名单。
+# DELETE /api/lists/{id}：删除软件包。
+
+@app.route('/api/lists/search', methods=['GET'])
+def search_list():
+    name = request.args.get('name')
+    search_type = request.args.get('type')
+    if search_type == 'md5':
+        result = lists_collection.find_one({'md5': name})
+    elif search_type == 'name':
+        # 名称用模糊搜索
+        result = lists_collection.find({'name': {'$regex': name, '$options': 'i'}})
+    elif search_type == 'package':
+        result = lists_collection.find_one({'package': name})
+    else:
+        result = None
+    if result:
+        return jsonify(result)
+    else:
+        return jsonify({'msg': 'not found'})
+
+
+@app.route('/lists/whitelist', methods=['GET'])
+def get_whitelist():
+    # type为white或者zj_white
+    result = lists_collection.find({'type': {'$in': ['white', 'zj_white']}})
+    return jsonify(list(result))
+
+
+@app.route('/lists/blacklist', methods=['GET'])
+def get_blacklist():
+    # type不是white或者zj_white
+    result = lists_collection.find({'type': {'$nin': ['white', 'zj_white']}})
+    return jsonify(list(result))
+
+
+@app.route('/lists/add', methods=['POST'])
+def add_to_list():
+    data = request.get_json()
+    if 'name' not in data or 'package' not in data or 'md5' not in data:
+        return jsonify({'msg': 'name, package, md5 are required'})
+    result = lists_collection.insert_one(data)
+    return jsonify({'msg': 'ok', 'id': str(result.inserted_id)})
+
+
+@app.route('/lists/<string:id>', methods=['DELETE'])
+def delete(id):
+    result = lists_collection.delete_one({'_id': ObjectId(id)})
+    if result.deleted_count == 1:
+        return jsonify({'msg': 'ok'})
+    else:
+        return jsonify({'msg': 'not found'})
 
 
 if __name__ == '__main__':

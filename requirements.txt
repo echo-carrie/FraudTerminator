@@ -4,3 +4,4 @@ flask~=3.0.3
 pandas~=2.2.2
 beautifulsoup4~=4.12.3
 zhipuai~=2.1.2
+pymongo~=4.8.0
