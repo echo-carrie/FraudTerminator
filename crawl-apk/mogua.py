@@ -5,30 +5,33 @@ from collections import *
 
 
 def crawl_mogua(package_name):
-    url = "https://mogua.co/souku?key={}&type=package".format(package_name)
-    print(url)
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
-    results = soup.find_all("a", {"class": "btn btn-primary"})
-    if len(results) == 0:
-        return []
-    if len(results[0].get("href").split("?")) < 2:
-        return []
-    url = "https://mogua.co/static_analyzer/?" + results[0].get("href").split("?")[1]
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, "html.parser")
-    table = soup.find_all("table", {"id": "table_permissions"})
-    #     <tbody>
-    #
-    #                           <tr>
-    #                           <td>android.permission.INTERNET</td>
-    #                           <td>
+    try:
+        url = "https://mogua.co/souku?key={}&type=package".format(package_name)
+        print(url)
+        r = requests.get(url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        results = soup.find_all("a", {"class": "btn btn-primary"})
+        if len(results) == 0:
+            return []
+        if len(results[0].get("href").split("?")) < 2:
+            return []
+        url = "https://mogua.co/static_analyzer/?" + results[0].get("href").split("?")[1]
+        r = requests.get(url)
+        soup = BeautifulSoup(r.text, "html.parser")
+        table = soup.find_all("table", {"id": "table_permissions"})
+        #     <tbody>
+        #
+        #                           <tr>
+        #                           <td>android.permission.INTERNET</td>
+        #                           <td>
 
-    # 找到所有td中的内容，并返回一个列表
-    permissions = []
-    for row in table[0].find_all("tr")[1:]:
-        permissions.append(row.find_all("td")[0].text.strip())
-    return permissions
+        # 找到所有td中的内容，并返回一个列表
+        permissions = []
+        for row in table[0].find_all("tr")[1:]:
+            permissions.append(row.find_all("td")[0].text.strip())
+        return permissions
+    except:
+        return []
 
 
 # print(crawl_mogua("com.baidu.appsearch"))
@@ -43,11 +46,13 @@ if __name__ == "__main__":
     count = 1
     with open("whitelist.txt", "r") as f:
         lines = f.readlines()
-        for line in lines[0:1000]:
+        for line in lines[0:100]:
             package_name = line.strip()
             count += 1
-            map3gram_kind[package_name] = crawl_mogua(package_name)
-            print(package_name, map3gram_kind[package_name])
+            permissions = crawl_mogua(package_name)
+            if len(permissions) > 0:
+                map3gram_kind[package_name] = crawl_mogua(package_name)
+                print(map3gram_kind[package_name])
 
     cc = Counter([])
     for d, lists in map3gram_kind.items():
