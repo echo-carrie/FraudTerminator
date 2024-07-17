@@ -3,6 +3,11 @@ import hashlib
 import os
 from flask_cors import CORS
 
+# python扫描二维码
+import pyzbar.pyzbar as pyzbar
+from PIL import Image
+
+# androguard
 from androguard.core.apk import APK
 # flask
 from flask import Flask, request
@@ -52,6 +57,77 @@ q_headers = {
 }
 
 
+# 通过上传apk链接的二维码扫描后上传文件
+@app.route('/files/upload/qrcode', methods=['POST'])
+def upload_qrcode():
+    if request.method == 'POST':
+        f = request.files['file']
+
+        # 读取二维码
+        img = Image.open(f)
+        qrcodes = pyzbar.decode(img)
+        if len(qrcodes) == 0:
+            return jsonify({'msg': 'not a qrcode'})
+        qrcode = qrcodes[0]
+        qrcode_data = qrcode.data.decode('utf-8')
+
+        # 下载文件
+        response = requests.get(qrcode_data)
+        # 保存文件到本地
+        # 随机生成一个文件id
+        fileId = str(random.randint(1000000000, 9999999999))
+        with open(fileId + '.apk', 'wb') as f:
+            f.write(response.content)
+
+        # 上传分析
+        response = uploadToQianXin(fileId + '.apk')
+
+        _id = response['data']['id']
+
+        # 修改文件名
+        new_filename = _id + '.apk'
+        os.rename(fileId + '.apk', new_filename)
+
+        # 返回apk_path
+        return jsonify({'id': _id})
+
+
+# 通过apk链接上传文件
+@app.route('/files/upload/url', methods=['POST'])
+def upload_url():
+    if request.method == 'POST':
+        url = request.form.get('url')
+        # 下载文件
+        response = requests.get(url)
+        # 保存文件到本地
+        # 随机生成一个文件id
+        fileId = str(random.randint(1000000000, 9999999999))
+        with open(fileId + '.apk', 'wb') as f:
+            f.write(response.content)
+
+        # 上传分析
+        response = uploadToQianXin(fileId + '.apk')
+        # {
+        #     "data": {
+        #         "id": "AZCIHlwQONZSmF3-yCZm",
+        #         "md5": "3bcd92277a42a9bb2b298d531b144aa9",
+        #         "sha1": "7d06bd1e64f6b9a021d200ff883a88bfae86e016",
+        #         "type": "file"
+        #     },
+        #     "msg": "ok",
+        #     "status": 10000
+        # }
+
+        _id = response['data']['id']
+
+        # 修改文件名
+        new_filename = _id + '.apk'
+        os.rename(fileId + '.apk', new_filename)
+
+        # 返回apk_path
+        return jsonify({'id': _id})
+
+
 # 上传文件
 @app.route('/files/upload', methods=['POST'])
 def upload():
@@ -65,17 +141,6 @@ def upload():
 
         # 上传分析
         response = uploadToQianXin(f.filename)
-        # {
-        #     "data": {
-        #         "id": "AZCIHlwQONZSmF3-yCZm",
-        #         "md5": "3bcd92277a42a9bb2b298d531b144aa9",
-        #         "sha1": "7d06bd1e64f6b9a021d200ff883a88bfae86e016",
-        #         "type": "file"
-        #     },
-        #     "msg": "ok",
-        #     "status": 10000
-        # }
-
         _id = response['data']['id']
 
         # 修改文件名
