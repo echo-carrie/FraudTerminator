@@ -162,21 +162,22 @@ def app_info():
 # POST /api/lists/add：添加软件包到名单。
 # DELETE /api/lists/{id}：删除软件包。
 
-@app.route('/api/lists/search', methods=['GET'])
+@app.route('/lists/search', methods=['GET'])
 def search_list():
-    name = request.args.get('name')
+    value = request.args.get('value')
     search_type = request.args.get('type')
     if search_type == 'md5':
-        result = lists_collection.find_one({'md5': name})
+        result = lists_collection.find({'md5': value})
     elif search_type == 'name':
-        # 名称用模糊搜索
-        result = lists_collection.find({'name': {'$regex': name, '$options': 'i'}})
+        # 名称用模糊搜索，不区分大小写
+        result = lists_collection.find({'apkName': {'$regex': value, '$options': 'i'}})
     elif search_type == 'package':
-        result = lists_collection.find_one({'package': name})
+        result = lists_collection.find({'packageName': value})
     else:
         result = None
+
     if result:
-        return jsonify(result)
+        return jsonify(list(result))
     else:
         return jsonify({'msg': 'not found'})
 
