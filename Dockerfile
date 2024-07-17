@@ -1,12 +1,23 @@
-# 使用Python作为基础镜像
+# Use Python as the base image
 FROM python:3.9
-# 设置工作目录
+
+# Set the working directory
 WORKDIR /app
-# 复制应用代码到容器中
+
+# Copy application code to the container
 COPY . /app
-# 安装依赖项
+
+# Update package list and install libzbar0
+RUN apt-get update && \
+    apt-get install -y libzbar0 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-# 暴露应用端口
+
+# Expose the application port
 EXPOSE 5000
-# 设置启动命令 \
+
+# Set the startup command
 CMD ["python", "main.py"]
