@@ -238,13 +238,12 @@ def app_info():
         temperature=0.95,
         max_tokens=1024,
         tools=[{"type": "web_search", "web_search": {"search_result": True}}],
-        stream=True,
+        stream=False,
     )
 
-    ai_response = ""
-
-    for trunk in response:
-        ai_response += trunk.choices[0].delta.content
+    ai_response = response.choices[0].message.content
+    # for trunk in response:
+    #     ai_response += trunk['text'] + '\n'
 
     result_dict['ai_response'] = ai_response
 
@@ -314,4 +313,4 @@ def delete(id):
 
 if __name__ == '__main__':
     # app.run(host='0.0.0.0', port=5000, debug=True)
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5001)
