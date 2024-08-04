@@ -190,7 +190,6 @@ def app_info():
     report_record = reports_collection.find_one({'qid': qid})
     if report_record and report_record['static_analysis']['data']['basic_info']['size']:
         return jsonify(report_record)
-
     apk = APK(qid + '.apk')
     package_name = apk.get_package()
     application_name = apk.get_app_name()
