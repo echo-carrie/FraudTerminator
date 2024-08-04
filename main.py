@@ -188,7 +188,7 @@ def app_info():
     # 检查mongodb中的记录是否存在
 
     report_record = reports_collection.find_one({'qid': qid})
-    if report_record and report_record['static_analysis']['data']['basic_info']['size']:
+    if report_record and len(report_record['static_analysis']['data']['basic_info']) > 0:
         return jsonify(report_record)
     apk = APK(qid + '.apk')
     package_name = apk.get_package()
