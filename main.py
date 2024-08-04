@@ -167,13 +167,40 @@ def get_static_analysis(id):
     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/static_analyze/file/" + id
 
     response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()
+    return response.json()['data']
 
 
 def get_threat_analysis(id):
     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/threat_analyze/file/" + id
     response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()
+    return response.json()['data']
+
+
+def get_host_behavior(id):
+    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/host_behavior/file/" + id
+    response = requests.request("GET", url, headers=q_headers, data={})
+    return response.json()['data']
+
+
+# network_behavior
+def get_network_behavior(id):
+    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/network_behavior/file/" + id
+    response = requests.request("GET", url, headers=q_headers, data={})
+    return response.json()['data']
+
+
+# dropfile
+def get_dropfile(id):
+    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/dropfile/file/" + id
+    response = requests.request("GET", url, headers=q_headers, data={})
+    return response.json()['data']
+
+
+def get_screenshot(id):
+    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/screenshot/file/" + id
+    response = requests.request("GET", url, headers=q_headers, data={})
+    return response.json()['data']
+
 
 @app.route('/reports/list', methods=['GET'])
 def get_report_list():
@@ -181,88 +208,103 @@ def get_report_list():
     result = reports_collection.find()
     return jsonify(list(result))
 
+
 @app.route('/reports/get', methods=['GET'])
 def app_info():
     qid = str(request.args.get('id'))
 
     # 检查mongodb中的记录是否存在
 
-    report_record = reports_collection.find_one({'qid': qid})
-    if report_record and len(report_record['static_analysis']['data']['basic_info']) > 0:
-        return jsonify(report_record)
-    apk = APK(qid + '.apk')
-    package_name = apk.get_package()
-    application_name = apk.get_app_name()
-    version_name = apk.get_androidversion_name()
-    version_code = apk.get_androidversion_code()
-    target_sdk_version = apk.get_target_sdk_version()
-    sha1 = apk.get_certificate(apk.get_signature_name()).sha1_fingerprint
-    permissions = apk.get_permissions()
-    activities = apk.get_activities()
-    architecture = {
-        "armeabi": False,
-        "armeabi-v7a": False,
-        "arm64-v8a": False,
-        "x86": False,
-        "x86_64": False
-    }
-    apk_files = apk.get_files()
-    for file in apk_files:
-        for key, value in architecture.items():
-            if value is False and file.startswith('lib/' + key + '/'):
-                architecture[key] = True
+    result_dict = reports_collection.find_one({'qid': qid})
+    if not result_dict:
+        apk = APK(qid + '.apk')
+        package_name = apk.get_package()
+        application_name = apk.get_app_name()
+        version_name = apk.get_androidversion_name()
+        version_code = apk.get_androidversion_code()
+        target_sdk_version = apk.get_target_sdk_version()
+        sha1 = apk.get_certificate(apk.get_signature_name()).sha1_fingerprint
+        permissions = apk.get_permissions()
+        activities = apk.get_activities()
+        architecture = {
+            "armeabi": False,
+            "armeabi-v7a": False,
+            "arm64-v8a": False,
+            "x86": False,
+            "x86_64": False
+        }
+        apk_files = apk.get_files()
+        for file in apk_files:
+            for key, value in architecture.items():
+                if value is False and file.startswith('lib/' + key + '/'):
+                    architecture[key] = True
 
-    md5 = hashlib.md5(open(qid + '.apk', 'rb').read()).hexdigest()
+        md5 = hashlib.md5(open(qid + '.apk', 'rb').read()).hexdigest()
 
-    result_dict = {
-        'qid': qid,
-        'application_name': application_name,
-        'package_name': package_name,
-        'md5': md5,
-        'version_code': version_code,
-        'version_name': version_name,
-        'target_sdk_version': target_sdk_version,
-        'architecture': architecture,
-        'SHA1': sha1,
-        'permissions': permissions,
-        'activities': activities,
-        'static_analysis': get_static_analysis(qid),
-        'threat_analysis': get_threat_analysis(qid)
-    }
+        result_dict = {
+            'qid': qid,
+            'application_name': application_name,
+            'package_name': package_name,
+            'md5': md5,
+            'version_code': version_code,
+            'version_name': version_name,
+            'target_sdk_version': target_sdk_version,
+            'architecture': architecture,
+            'SHA1': sha1,
+            'permissions': permissions,
+            'activities': activities,
+        }
 
-    # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
-    client = ZhipuAI(api_key="a0166a5c17216218cf0ac15889dfe327.uu0rgI10O9HWD0jM")
+        # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
+        client = ZhipuAI(api_key="a0166a5c17216218cf0ac15889dfe327.uu0rgI10O9HWD0jM")
 
-    response = client.chat.completions.create(
-        model="glm-4-flash",
-        messages=[
-            {
-                "role": "system",
-                "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有害，并具体指出哪些内容有害， 你的回答不能有“无法确定 XXX APP 是否有害”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
-            },
-            {
-                "role": "user",
-                "content": json.dumps(result_dict)
-            }
-        ],
-        top_p=0.7,
-        temperature=0.95,
-        max_tokens=1024,
-        tools=[{"type": "web_search", "web_search": {"search_result": True}}],
-        stream=False,
-    )
+        response = client.chat.completions.create(
+            model="glm-4-flash",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有害，并具体指出哪些内容有害， 你的回答不能有“无法确定 XXX APP 是否有害”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(result_dict)
+                }
+            ],
+            top_p=0.7,
+            temperature=0.95,
+            max_tokens=1024,
+            tools=[{"type": "web_search", "web_search": {"search_result": True}}],
+            stream=False,
+        )
 
-    ai_response = response.choices[0].message.content
-    # for trunk in response:
-    #     ai_response += trunk['text'] + '\n'
+        ai_response = response.choices[0].message.content
+        # for trunk in response:
+        #     ai_response += trunk['text'] + '\n'
+        result_dict['ai_response'] = ai_response
 
-    result_dict['ai_response'] = ai_response
+        # 保存到mongodb，如果存在则更新
+        reports_collection.update_one({'qid': qid,}, {'$set': result_dict}, upsert=True)
 
-
-    # 保存到mongodb，如果存在则更新
-    reports_collection.update_one({'qid': qid}, {'$set': result_dict}, upsert=True)
     return jsonify(result_dict)
 
+
+@app.route('/reports/get_more', methods=['GET'])
+def get_more_info():
+    qid = str(request.args.get('id'))
+    result_dict = reports_collection.find_one({'qid': qid})
+    if result_dict:
+        result_dict.update(
+            {
+                'static_analysis': get_static_analysis(qid),
+                'threat_analysis': get_threat_analysis(qid),
+                'host_behavior': get_host_behavior(qid),
+                'network_behavior': get_network_behavior(qid),
+                'dropfile': get_dropfile(qid),
+                'screenshot': get_screenshot(qid)
+            }
+        )
+        reports_collection.update_one({'qid': qid,}, {'$set': result_dict}, upsert=True)
+    return jsonify(result_dict)
 
 # 名单部分
 # GET /api/lists/search?name={appName}&type={md5 | name | package}：通过md5、app名称、包名、搜索软件包
