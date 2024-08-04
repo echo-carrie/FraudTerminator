@@ -188,9 +188,8 @@ def app_info():
     # 检查mongodb中的记录是否存在
 
     report_record = reports_collection.find_one({'qid': qid})
-    if report_record:
+    if report_record and len(report_record['static_analysis']['data']['basic_info']) > 0:
         return jsonify(report_record)
-
     apk = APK(qid + '.apk')
     package_name = apk.get_package()
     application_name = apk.get_app_name()
@@ -260,9 +259,8 @@ def app_info():
     result_dict['ai_response'] = ai_response
 
 
-    # 保存到mongodb
-    reports_collection.insert_one(result_dict)
-
+    # 保存到mongodb，如果存在则更新
+    reports_collection.update_one({'qid': qid}, {'$set': result_dict}, upsert=True)
     return jsonify(result_dict)
 
 
