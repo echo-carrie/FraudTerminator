@@ -175,11 +175,23 @@ def get_threat_analysis(id):
     response = requests.request("GET", url, headers=q_headers, data={})
     return response.json()
 
+@app.route('/reports/list', methods=['GET'])
+def get_report_list():
+    # 获取所有报告列表
+    result = reports_collection.find()
+    return jsonify(list(result))
 
 @app.route('/reports/get', methods=['GET'])
 def app_info():
-    id = str(request.args.get('id'))
-    apk = APK(id + '.apk')
+    qid = str(request.args.get('id'))
+
+    # 检查mongodb中的记录是否存在
+
+    report_record = reports_collection.find_one({'qid': qid})
+    if report_record:
+        return jsonify(report_record)
+
+    apk = APK(qid + '.apk')
     package_name = apk.get_package()
     application_name = apk.get_app_name()
     version_name = apk.get_androidversion_name()
@@ -201,10 +213,10 @@ def app_info():
             if value is False and file.startswith('lib/' + key + '/'):
                 architecture[key] = True
 
-    md5 = hashlib.md5(open(id + '.apk', 'rb').read()).hexdigest()
+    md5 = hashlib.md5(open(qid + '.apk', 'rb').read()).hexdigest()
 
     result_dict = {
-        'qid': id,
+        'qid': qid,
         'application_name': application_name,
         'package_name': package_name,
         'md5': md5,
@@ -215,8 +227,8 @@ def app_info():
         'SHA1': sha1,
         'permissions': permissions,
         'activities': activities,
-        'static_analysis': get_static_analysis(id),
-        'threat_analysis': get_threat_analysis(id)
+        'static_analysis': get_static_analysis(qid),
+        'threat_analysis': get_threat_analysis(qid)
     }
 
     # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
@@ -227,7 +239,7 @@ def app_info():
         messages=[
             {
                 "role": "system",
-                "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有害， 你的回答不能有“无法确定 XXX APP 是否有害”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
+                "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有害，并具体指出哪些内容有害， 你的回答不能有“无法确定 XXX APP 是否有害”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
             },
             {
                 "role": "user",
@@ -246,6 +258,10 @@ def app_info():
     #     ai_response += trunk['text'] + '\n'
 
     result_dict['ai_response'] = ai_response
+
+
+    # 保存到mongodb
+    reports_collection.insert_one(result_dict)
 
     return jsonify(result_dict)
 
