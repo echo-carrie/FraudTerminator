@@ -1,23 +1,26 @@
 # pip3 install androguard
 import hashlib
+import json
 import os
-from flask_cors import CORS
-
-from zhipuai import ZhipuAI
+import random
+import zipfile
 
 # python扫描二维码
 import pyzbar.pyzbar as pyzbar
+import requests
 from PIL import Image
-
 # androguard
 from androguard.core.apk import APK
+from androguard.misc import AnalyzeAPK
+from bson.objectid import ObjectId
 # flask
 from flask import Flask, request
-import random
-import requests
+from flask import send_file, jsonify
+from flask_cors import CORS
+from lxml import etree
 from pymongo import MongoClient
-from bson.objectid import ObjectId
-import json
+from werkzeug.utils import secure_filename
+from zhipuai import ZhipuAI
 
 # 连接mongodb数据库
 client = MongoClient('mongodb://root:mongodb@m1.oboard.eu.org:27017/')
@@ -205,7 +208,8 @@ def get_screenshot(id):
 @app.route('/reports/list', methods=['GET'])
 def get_report_list():
     # 获取所有报告列表，只需要qid, application_name, package_name, md5, target_sdk_version
-    result = reports_collection.find({}, {'_id': 0, 'qid': 1, 'application_name': 1, 'package_name': 1,'md5': 1, 'target_sdk_version': 1})
+    result = reports_collection.find({}, {'_id': 0, 'qid': 1, 'application_name': 1, 'package_name': 1, 'md5': 1,
+                                          'target_sdk_version': 1})
     return jsonify(list(result))
 
 
@@ -283,7 +287,7 @@ def app_info():
         result_dict['ai_response'] = ai_response
 
         # 保存到mongodb，如果存在则更新
-        reports_collection.update_one({'qid': qid,}, {'$set': result_dict}, upsert=True)
+        reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
 
     return jsonify(result_dict)
 
@@ -303,8 +307,9 @@ def get_more_info():
                 'screenshot': get_screenshot(qid)
             }
         )
-        reports_collection.update_one({'qid': qid,}, {'$set': result_dict}, upsert=True)
+        reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
     return jsonify(result_dict)
+
 
 # 名单部分
 # GET /api/lists/search?name={appName}&type={md5 | name | package}：通过md5、app名称、包名、搜索软件包
@@ -367,12 +372,6 @@ def delete(id):
         return jsonify({'msg': 'not found'})
 
 
-import os
-import zipfile
-from flask import Flask, request, send_file, jsonify
-from werkzeug.utils import secure_filename
-from androguard.misc import AnalyzeAPK
-
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 DECOMPILED_FOLDER = 'decompiled'
@@ -383,14 +382,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(DECOMPILED_FOLDER, exist_ok=True)
 os.makedirs(ZIP_FOLDER, exist_ok=True)
 
-import os
-import zipfile
-from flask import Flask, request, send_file, jsonify
-from werkzeug.utils import secure_filename
-from androguard.misc import AnalyzeAPK
-from lxml import etree
-
-app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 DECOMPILED_FOLDER = 'decompiled'
 ZIP_FOLDER = 'zips'
@@ -413,7 +404,6 @@ def save_apk_content(apk, output_folder):
 
     # 如果需要，还可以提取更多信息，比如解析 AndroidManifest.xml 等
     with open(os.path.join(output_folder, "AndroidManifest.xml"), 'wb') as f:
-
         # 将 Element 对象转换为字符串
         xml_str = etree.tostring(apk.get_android_manifest_xml(), pretty_print=True, encoding='utf-8')
         f.write(xml_str)
@@ -460,6 +450,7 @@ def download_file(filename):
         return send_file(zip_filepath, as_attachment=True)
     else:
         return jsonify({"error": "File not found"}), 404
+
 
 if __name__ == '__main__':
     # app.run(host='0.0.0.0', port=5000, debug=True)
