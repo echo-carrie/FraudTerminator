@@ -372,7 +372,6 @@ def delete(id):
         return jsonify({'msg': 'not found'})
 
 
-app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 DECOMPILED_FOLDER = 'decompiled'
 ZIP_FOLDER = 'zips'
