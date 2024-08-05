@@ -204,8 +204,8 @@ def get_screenshot(id):
 
 @app.route('/reports/list', methods=['GET'])
 def get_report_list():
-    # 获取所有报告列表
-    result = reports_collection.find()
+    # 获取所有报告列表，只需要qid, application_name, package_name, md5, target_sdk_version
+    result = reports_collection.find({}, {'_id': 0, 'qid': 1, 'application_name': 1, 'package_name': 1,'md5': 1, 'target_sdk_version': 1})
     return jsonify(list(result))
 
 
@@ -291,7 +291,7 @@ def app_info():
 @app.route('/reports/get_more', methods=['GET'])
 def get_more_info():
     qid = str(request.args.get('id'))
-    result_dict = reports_collection.find_one({'qid': qid})
+    result_dict = dict(reports_collection.find_one({'qid': qid}))
     if result_dict:
         result_dict.update(
             {
