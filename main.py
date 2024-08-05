@@ -367,6 +367,100 @@ def delete(id):
         return jsonify({'msg': 'not found'})
 
 
+import os
+import zipfile
+from flask import Flask, request, send_file, jsonify
+from werkzeug.utils import secure_filename
+from androguard.misc import AnalyzeAPK
+
+app = Flask(__name__)
+UPLOAD_FOLDER = 'uploads'
+DECOMPILED_FOLDER = 'decompiled'
+ZIP_FOLDER = 'zips'
+
+# 创建必要的文件夹
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(DECOMPILED_FOLDER, exist_ok=True)
+os.makedirs(ZIP_FOLDER, exist_ok=True)
+
+import os
+import zipfile
+from flask import Flask, request, send_file, jsonify
+from werkzeug.utils import secure_filename
+from androguard.misc import AnalyzeAPK
+from lxml import etree
+
+app = Flask(__name__)
+UPLOAD_FOLDER = 'uploads'
+DECOMPILED_FOLDER = 'decompiled'
+ZIP_FOLDER = 'zips'
+
+# 创建必要的文件夹
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(DECOMPILED_FOLDER, exist_ok=True)
+os.makedirs(ZIP_FOLDER, exist_ok=True)
+
+
+def save_apk_content(apk, output_folder):
+    os.makedirs(output_folder, exist_ok=True)
+
+    # 保存 APK 的资源文件
+    for file_name in apk.get_files():
+        file_path = os.path.join(output_folder, file_name)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'wb') as f:
+            f.write(apk.get_file(file_name))
+
+    # 如果需要，还可以提取更多信息，比如解析 AndroidManifest.xml 等
+    with open(os.path.join(output_folder, "AndroidManifest.xml"), 'wb') as f:
+
+        # 将 Element 对象转换为字符串
+        xml_str = etree.tostring(apk.get_android_manifest_xml(), pretty_print=True, encoding='utf-8')
+        f.write(xml_str)
+
+
+@app.route('/upload_to_decompile', methods=['POST'])
+def upload_to_decompile():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    filename = secure_filename(file.filename)
+    apk_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(apk_path)
+
+    # 反编译 APK 文件
+    output_folder = os.path.join(DECOMPILED_FOLDER, filename.rsplit('.', 1)[0])
+    os.makedirs(output_folder, exist_ok=True)
+
+    a, d, dx = AnalyzeAPK(apk_path)
+    save_apk_content(a, output_folder)
+
+    # 创建 ZIP 文件
+    zip_filename = f"{filename.rsplit('.', 1)[0]}.zip"
+    zip_filepath = os.path.join(ZIP_FOLDER, zip_filename)
+
+    with zipfile.ZipFile(zip_filepath, 'w') as zipf:
+        for root, dirs, files in os.walk(output_folder):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, output_folder)
+                zipf.write(file_path, arcname)
+
+    return jsonify({"download_url": f"/download/{zip_filename}"}), 200
+
+
+@app.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    zip_filepath = os.path.join(ZIP_FOLDER, filename)
+    if os.path.exists(zip_filepath):
+        return send_file(zip_filepath, as_attachment=True)
+    else:
+        return jsonify({"error": "File not found"}), 404
+
 if __name__ == '__main__':
     # app.run(host='0.0.0.0', port=5000, debug=True)
     app.run(host='0.0.0.0', port=5000)
