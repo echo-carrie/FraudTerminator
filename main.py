@@ -284,30 +284,46 @@ def get_more_info():
 
         # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
         client = ZhipuAI(api_key="c4472a36cdbf78c3a1b1e36a7972bb13.tiwiEJXjl9tyeqoc")
+        try:
+            response = client.chat.completions.create(
+                model="glm-4-flash",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有诈骗行为，并具体指出哪些内容可能存在诈骗风险， 你的回答不能有“无法确定 XXX APP 是否有诈骗行为”、“不建议安装 XXX APP”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps({
+                            "application_name": result_dict['application_name'],
+                            "permissions": result_dict['permissions'],
+                            "activities": result_dict['activities'],
+                            "target_sdk_version": result_dict['target_sdk_version'],
+                            "version_code": result_dict['version_code'],
+                            "version_name": result_dict['version_name'],
+                            "architecture": result_dict['architecture'],
+                            "package_name": result_dict['package_name'],
+                            "static_analysis": result_dict['static_analysis'],
+                            "threat_analysis": result_dict['threat_analysis'],
+                            "host_behavior": result_dict['host_behavior'],
+                            "network_behavior": result_dict['network_behavior'],
+                        })
+                    }
+                ],
+                top_p=0.7,
+                temperature=0.95,
+                max_tokens=300,
+                tools=[{"type": "web_search", "web_search": {"search_result": True}}],
+                stream=False,
+            )
 
-        response = client.chat.completions.create(
-            model="glm-4-flash",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有诈骗行为，并具体指出哪些内容可能存在诈骗风险， 你的回答不能有“无法确定 XXX APP 是否有诈骗行为”、“不建议安装 XXX APP”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(result_dict)
-                }
-            ],
-            top_p=0.7,
-            temperature=0.95,
-            max_tokens=300,
-            tools=[{"type": "web_search", "web_search": {"search_result": True}}],
-            stream=False,
-        )
-
-        ai_response = response.choices[0].message.content
-        # for trunk in response:
-        #     ai_response += trunk['text'] + '\n'
-        result_dict.update({'ai_response': ai_response})
+            ai_response = response.choices[0].message.content
+            # for trunk in response:
+            #     ai_response += trunk['text'] + '\n'
+            result_dict.update({'ai_response': ai_response})
+        except Exception as e:
+            print(e)
+            result_dict.update({'ai_response': 'AI模型出错，请稍后再试'})
         # 保存到mongodb，如果存在则更新
         reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
     return jsonify(result_dict)
