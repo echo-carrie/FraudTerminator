@@ -259,33 +259,6 @@ def app_info():
             'activities': activities,
         }
 
-        # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
-        client = ZhipuAI(api_key="a0166a5c17216218cf0ac15889dfe327.uu0rgI10O9HWD0jM")
-
-        response = client.chat.completions.create(
-            model="glm-4-flash",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有害，并具体指出哪些内容有害， 你的回答不能有“无法确定 XXX APP 是否有害”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(result_dict)
-                }
-            ],
-            top_p=0.7,
-            temperature=0.95,
-            max_tokens=1024,
-            tools=[{"type": "web_search", "web_search": {"search_result": True}}],
-            stream=False,
-        )
-
-        ai_response = response.choices[0].message.content
-        # for trunk in response:
-        #     ai_response += trunk['text'] + '\n'
-        result_dict['ai_response'] = ai_response
-
         # 保存到mongodb，如果存在则更新
         reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
 
@@ -296,6 +269,7 @@ def app_info():
 def get_more_info():
     qid = str(request.args.get('id'))
     result_dict = dict(reports_collection.find_one({'qid': qid}))
+
     if result_dict:
         result_dict.update(
             {
@@ -307,6 +281,34 @@ def get_more_info():
                 'screenshot': get_screenshot(qid)
             }
         )
+
+        # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
+        client = ZhipuAI(api_key="c4472a36cdbf78c3a1b1e36a7972bb13.tiwiEJXjl9tyeqoc")
+
+        response = client.chat.completions.create(
+            model="glm-4-flash",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有诈骗行为，并具体指出哪些内容可能存在诈骗风险， 你的回答不能有“无法确定 XXX APP 是否有诈骗行为”、“不建议安装 XXX APP”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断"
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(result_dict)
+                }
+            ],
+            top_p=0.7,
+            temperature=0.95,
+            max_tokens=300,
+            tools=[{"type": "web_search", "web_search": {"search_result": True}}],
+            stream=False,
+        )
+
+        ai_response = response.choices[0].message.content
+        # for trunk in response:
+        #     ai_response += trunk['text'] + '\n'
+        result_dict.update({'ai_response': ai_response})
+        # 保存到mongodb，如果存在则更新
         reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
     return jsonify(result_dict)
 
