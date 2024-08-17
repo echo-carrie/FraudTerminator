@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 from zhipuai import ZhipuAI
 
 # 连接mongodb数据库
-client = MongoClient('mongodb://fraud_terminator:8.138.83.46:27017/')
+client = MongoClient('mongodb://8.138.83.46:27017/')
 db = client['fraud_terminator']
 
 reports_collection = db['reports']
@@ -344,12 +344,12 @@ def search_list():
     value = request.args.get('value')
     search_type = request.args.get('type')
     if search_type == 'md5':
-        result = lists_collection.find({'md5': value})
+        result = lists_collection.find({'md5':  {'$regex': value, '$options': 'i'}})
     elif search_type == 'name':
         # 名称用模糊搜索，不区分大小写
         result = lists_collection.find({'apkName': {'$regex': value, '$options': 'i'}})
     elif search_type == 'package':
-        result = lists_collection.find({'packageName': value})
+        result = lists_collection.find({'packageName':  {'$regex': value, '$options': 'i'}})
     else:
         result = None
 
