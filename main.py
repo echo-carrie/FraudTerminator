@@ -277,8 +277,7 @@ def get_more_info():
                 'threat_analysis': get_threat_analysis(qid),
                 'host_behavior': get_host_behavior(qid),
                 'network_behavior': get_network_behavior(qid),
-                'dropfile': get_dropfile(qid),
-                'screenshot': get_screenshot(qid)
+                'dropfile': get_dropfile(qid)
             }
         )
 
@@ -327,6 +326,8 @@ def get_more_info():
                 result_dict.update({'ai_response': 'AI模型出错，请稍后再试'})
         # 保存到mongodb，如果存在则更新
         reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
+
+    result_dict = result_dict.update({'screenshot': get_screenshot(qid)})
     return jsonify(result_dict)
 
 
