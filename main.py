@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 from zhipuai import ZhipuAI
 
 # 连接mongodb数据库
-client = MongoClient('mongodb://8.138.83.46:27017/')
+client = MongoClient('mongodb://root:mongodb@8.138.83.46:27017/?authSource=fraud_terminator')
 db = client['fraud_terminator']
 
 reports_collection = db['reports']
