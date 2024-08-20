@@ -91,7 +91,7 @@ def upload_qrcode():
             f.write(response.content)
 
         # 上传分析
-        response = uploadToQianXin(file_id + '.apk')
+        response = upload_to_qian_xin(file_id + '.apk')
 
         _id = response['data']['id']
 
@@ -117,7 +117,7 @@ def upload_url():
             f.write(response.content)
 
         # 上传分析
-        response = uploadToQianXin(fileId + '.apk')
+        response = upload_to_qian_xin(fileId + '.apk')
         # {
         #     "data": {
         #         "id": "AZCIHlwQONZSmF3-yCZm",
@@ -146,12 +146,13 @@ def upload():
         f = request.files['file']
         # 保存文件到本地
         # 随机生成一个文件id
-        fileId = str(random.randint(1000000000, 9999999999))
-        f.filename = fileId + '.apk'
+        file_id = str(random.randint(1000000000, 9999999999))
+        f.filename = file_id + '.apk'
         f.save(f.filename)
 
         # 上传分析
-        response = uploadToQianXin(f.filename)
+        response = upload_to_qian_xin(f.filename)
+
         _id = response['data']['id']
 
         # 修改文件名
@@ -162,13 +163,13 @@ def upload():
         return jsonify({'id': _id})
 
 
-def uploadToQianXin(filename):
-    url = "https://sandbox.ti.qianxin.com/sandbox/fileupload?env=&time=1&analyzer=&zip_pwd="
+def upload_to_qian_xin(filename):
+    url = "https://sandbox.ti.qianxin.com/sandbox/fileupload?env=Android%207.0&time=1&analyzer=&zip_pwd="
     files = [
         ('file', ('1ef3b972-5c47-4ff0-9241-afd333ad884c', open(filename, 'rb'), 'application/octet-stream'))
     ]
     response = requests.request("POST", url, headers=q_headers, data={}, files=files)
-    print(response.json())
+    # print(response.json())
     return response.json()
 
 #
