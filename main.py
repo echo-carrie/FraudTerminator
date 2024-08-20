@@ -150,6 +150,14 @@ def upload():
         f.filename = file_id + '.apk'
         f.save(f.filename)
 
+        md5 = hashlib.md5(open(f.filename, 'rb').read()).hexdigest()
+
+        # 在reports中查找md5是否存在
+        result = reports_collection.find_one({'md5': md5})
+        if result:
+            return jsonify({'id': result['qid']})
+
+
         # 上传分析
         response = upload_to_qian_xin(f.filename)
 
