@@ -15,12 +15,12 @@ from androguard.misc import AnalyzeAPK
 from bson.objectid import ObjectId
 # flask
 from flask import Flask, request
-from flask import send_file, jsonify
+from flask import send_file
 from flask_cors import CORS
 from lxml import etree
 from pymongo import MongoClient
 from werkzeug.utils import secure_filename
-from zhipuai import ZhipuAI
+# from zhipuai import ZhipuAI
 
 # 连接mongodb数据库
 client = MongoClient('mongodb://root:mongodb@8.138.83.46:27017/?authSource=fraud_terminator')
@@ -58,7 +58,8 @@ q_headers = {
     'DNT': '1',
     'Origin': 'https://sandbox.ti.qianxin.com',
     'Referer': 'https://sandbox.ti.qianxin.com/sandbox/page',
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/126.0.0.0 Safari/537.36'
 }
 
 
@@ -67,9 +68,14 @@ q_headers = {
 def upload_qrcode():
     if request.method == 'POST':
         f = request.files['file']
+        # 保存文件到本地
+        # 随机生成一个文件id
+        file_id = str(random.randint(1000000000, 9999999999))
+        f.filename = file_id + '.apk'
+        f.save(f.filename)
 
         # 读取二维码
-        img = Image.open(f)
+        img = Image.open(f.filename)
         qrcodes = pyzbar.decode(img)
         if len(qrcodes) == 0:
             return jsonify({'msg': 'not a qrcode'})
@@ -80,18 +86,18 @@ def upload_qrcode():
         response = requests.get(qrcode_data)
         # 保存文件到本地
         # 随机生成一个文件id
-        fileId = str(random.randint(1000000000, 9999999999))
-        with open(fileId + '.apk', 'wb') as f:
+        file_id = str(random.randint(1000000000, 9999999999))
+        with open(file_id + '.apk', 'wb') as f:
             f.write(response.content)
 
         # 上传分析
-        response = uploadToQianXin(fileId + '.apk')
+        response = uploadToQianXin(file_id + '.apk')
 
         _id = response['data']['id']
 
         # 修改文件名
         new_filename = _id + '.apk'
-        os.rename(fileId + '.apk', new_filename)
+        os.rename(file_id + '.apk', new_filename)
 
         # 返回apk_path
         return jsonify({'id': _id})
@@ -165,44 +171,44 @@ def uploadToQianXin(filename):
     print(response.json())
     return response.json()
 
-
-def get_static_analysis(id):
-    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/static_analyze/file/" + id
-
-    response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()['data']
-
-
-def get_threat_analysis(id):
-    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/threat_analyze/file/" + id
-    response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()['data']
-
-
-def get_host_behavior(id):
-    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/host_behavior/file/" + id
-    response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()['data']
-
-
-# network_behavior
-def get_network_behavior(id):
-    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/network_behavior/file/" + id
-    response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()['data']
-
-
-# dropfile
-def get_dropfile(id):
-    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/dropfile/file/" + id
-    response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()['data']
-
-
-def get_screenshot(id):
-    url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/screenshot/file/" + id
-    response = requests.request("GET", url, headers=q_headers, data={})
-    return response.json()['data']
+#
+# def get_static_analysis(id):
+#     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/static_analyze/file/" + id
+#
+#     response = requests.request("GET", url, headers=q_headers, data={})
+#     return response.json()['data']
+#
+#
+# def get_threat_analysis(id):
+#     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/threat_analyze/file/" + id
+#     response = requests.request("GET", url, headers=q_headers, data={})
+#     return response.json()['data']
+#
+#
+# def get_host_behavior(id):
+#     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/host_behavior/file/" + id
+#     response = requests.request("GET", url, headers=q_headers, data={})
+#     return response.json()['data']
+#
+#
+# # network_behavior
+# def get_network_behavior(id):
+#     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/network_behavior/file/" + id
+#     response = requests.request("GET", url, headers=q_headers, data={})
+#     return response.json()['data']
+#
+#
+# # dropfile
+# def get_dropfile(id):
+#     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/dropfile/file/" + id
+#     response = requests.request("GET", url, headers=q_headers, data={})
+#     return response.json()['data']
+#
+#
+# def get_screenshot(id):
+#     url = "https://sandbox.ti.qianxin.com/sandbox/report/dynamic/get/screenshot/file/" + id
+#     response = requests.request("GET", url, headers=q_headers, data={})
+#     return response.json()['data']
 
 
 @app.route('/reports/list', methods=['GET'])
@@ -265,71 +271,71 @@ def app_info():
     return jsonify(result_dict)
 
 
-@app.route('/reports/get_more', methods=['GET'])
-def get_more_info():
-    qid = str(request.args.get('id'))
-    result_dict = dict(reports_collection.find_one({'qid': qid}))
-
-    if result_dict:
-        result_dict.update(
-            {
-                'static_analysis': get_static_analysis(qid),
-                'threat_analysis': get_threat_analysis(qid),
-                'host_behavior': get_host_behavior(qid),
-                'network_behavior': get_network_behavior(qid),
-                'dropfile': get_dropfile(qid)
-            }
-        )
-
-        # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
-        client = ZhipuAI(api_key="c4472a36cdbf78c3a1b1e36a7972bb13.tiwiEJXjl9tyeqoc")
-        if 'ai_response' not in result_dict:
-            try:
-                response = client.chat.completions.create(
-                    model="glm-4-flash",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有诈骗行为，并具体指出哪些内容可能存在诈骗风险， 你的回答不能有“无法确定 XXX APP 是否有诈骗行为”、“不建议安装 XXX APP”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断，控制在200字以内。"
-                        },
-                        {
-                            "role": "user",
-                            "content": json.dumps({
-                                "application_name": result_dict['application_name'],
-                                "permissions": result_dict['permissions'],
-                                "activities": result_dict['activities'],
-                                "target_sdk_version": result_dict['target_sdk_version'],
-                                "version_code": result_dict['version_code'],
-                                "version_name": result_dict['version_name'],
-                                "architecture": result_dict['architecture'],
-                                "package_name": result_dict['package_name'],
-                                "static_analysis": result_dict['static_analysis'],
-                                "threat_analysis": result_dict['threat_analysis'],
-                                "host_behavior": result_dict['host_behavior'],
-                                "network_behavior": result_dict['network_behavior'],
-                            })
-                        }
-                    ],
-                    top_p=0.7,
-                    temperature=0.95,
-                    max_tokens=400,
-                    tools=[{"type": "web_search", "web_search": {"search_result": True}}],
-                    stream=False,
-                )
-
-                ai_response = response.choices[0].message.content
-                # for trunk in response:
-                #     ai_response += trunk['text'] + '\n'
-                result_dict.update({'ai_response': ai_response})
-            except Exception as e:
-                print(e)
-                result_dict.update({'ai_response': 'AI模型出错，请稍后再试'})
-        # 保存到mongodb，如果存在则更新
-        reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
-
-    result_dict = result_dict.update({'screenshot': get_screenshot(qid)})
-    return jsonify(result_dict)
-
+# @app.route('/reports/get_more', methods=['GET'])
+# def get_more_info():
+#     qid = str(request.args.get('id'))
+#     result_dict = dict(reports_collection.find_one({'qid': qid}))
+#
+#     if result_dict:
+#         result_dict.update(
+#             {
+#                 'static_analysis': get_static_analysis(qid),
+#                 'threat_analysis': get_threat_analysis(qid),
+#                 'host_behavior': get_host_behavior(qid),
+#                 'network_behavior': get_network_behavior(qid),
+#                 'dropfile': get_dropfile(qid)
+#             }
+#         )
+#
+#         # 这是宇航的API Key，节省一点使用 🥺🥺🥺🥺🥺🥺
+#         client = ZhipuAI(api_key="c4472a36cdbf78c3a1b1e36a7972bb13.tiwiEJXjl9tyeqoc")
+#         if 'ai_response' not in result_dict:
+#             try:
+#                 response = client.chat.completions.create(
+#                     model="glm-4-flash",
+#                     messages=[
+#                         {
+#                             "role": "system",
+#                             "content": "你是一个软件分析专家，请参考下面的分析内容猜测这个软件是否有诈骗行为，并具体指出哪些内容可能存在诈骗风险， 你的回答不能有“无法确定 XXX APP 是否有诈骗行为”、“不建议安装 XXX APP”的说法，也不要回答“结合其他安全工具或平台对  APP 进行更全面的安全评估。”，相信你的判断，控制在200字以内。"
+#                         },
+#                         {
+#                             "role": "user",
+#                             "content": json.dumps({
+#                                 "application_name": result_dict['application_name'],
+#                                 "permissions": result_dict['permissions'],
+#                                 "activities": result_dict['activities'],
+#                                 "target_sdk_version": result_dict['target_sdk_version'],
+#                                 "version_code": result_dict['version_code'],
+#                                 "version_name": result_dict['version_name'],
+#                                 "architecture": result_dict['architecture'],
+#                                 "package_name": result_dict['package_name'],
+#                                 "static_analysis": result_dict['static_analysis'],
+#                                 "threat_analysis": result_dict['threat_analysis'],
+#                                 "host_behavior": result_dict['host_behavior'],
+#                                 "network_behavior": result_dict['network_behavior'],
+#                             })
+#                         }
+#                     ],
+#                     top_p=0.7,
+#                     temperature=0.95,
+#                     max_tokens=400,
+#                     tools=[{"type": "web_search", "web_search": {"search_result": True}}],
+#                     stream=False,
+#                 )
+#
+#                 ai_response = response.choices[0].message.content
+#                 # for trunk in response:
+#                 #     ai_response += trunk['text'] + '\n'
+#                 result_dict.update({'ai_response': ai_response})
+#             except Exception as e:
+#                 print(e)
+#                 result_dict.update({'ai_response': 'AI模型出错，请稍后再试'})
+#         # 保存到mongodb，如果存在则更新
+#         reports_collection.update_one({'qid': qid, }, {'$set': result_dict}, upsert=True)
+#
+#     result_dict = result_dict.update({'screenshot': get_screenshot(qid)})
+#     return jsonify(result_dict)
+#
 
 # 名单部分
 # GET /api/lists/search?name={appName}&type={md5 | name | package}：通过md5、app名称、包名、搜索软件包
