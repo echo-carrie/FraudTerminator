@@ -20,6 +20,9 @@ from flask_cors import CORS
 from lxml import etree
 from pymongo import MongoClient
 from werkzeug.utils import secure_filename
+
+from androguard.core.apk import ARSCParser
+
 # from zhipuai import ZhipuAI
 
 # 连接mongodb数据库
@@ -90,6 +93,13 @@ def upload_qrcode():
         with open(file_id + '.apk', 'wb') as f:
             f.write(response.content)
 
+        md5 = hashlib.md5(open(file_id + '.apk', 'rb').read()).hexdigest()
+
+        # 在reports中查找md5是否存在
+        result = reports_collection.find_one({'md5': md5})
+        if result:
+            return jsonify({'id': result['qid']})
+
         # 上传分析
         response = upload_to_qian_xin(file_id + '.apk')
 
@@ -112,12 +122,19 @@ def upload_url():
         response = requests.get(url)
         # 保存文件到本地
         # 随机生成一个文件id
-        fileId = str(random.randint(1000000000, 9999999999))
-        with open(fileId + '.apk', 'wb') as f:
+        file_id = str(random.randint(1000000000, 9999999999))
+        with open(file_id + '.apk', 'wb') as f:
             f.write(response.content)
 
+        md5 = hashlib.md5(open(file_id + '.apk', 'rb').read()).hexdigest()
+
+        # 在reports中查找md5是否存在
+        result = reports_collection.find_one({'md5': md5})
+        if result:
+            return jsonify({'id': result['qid']})
+
         # 上传分析
-        response = upload_to_qian_xin(fileId + '.apk')
+        response = upload_to_qian_xin(file_id + '.apk')
         # {
         #     "data": {
         #         "id": "AZCIHlwQONZSmF3-yCZm",
@@ -133,7 +150,7 @@ def upload_url():
 
         # 修改文件名
         new_filename = _id + '.apk'
-        os.rename(fileId + '.apk', new_filename)
+        os.rename(file_id + '.apk', new_filename)
 
         # 返回apk_path
         return jsonify({'id': _id})
@@ -157,7 +174,6 @@ def upload():
         if result:
             return jsonify({'id': result['qid']})
 
-
         # 上传分析
         response = upload_to_qian_xin(f.filename)
 
@@ -179,6 +195,7 @@ def upload_to_qian_xin(filename):
     response = requests.request("POST", url, headers=q_headers, data={}, files=files)
     # print(response.json())
     return response.json()
+
 
 #
 # def get_static_analysis(id):
@@ -235,14 +252,26 @@ def app_info():
     # 检查mongodb中的记录是否存在
 
     result_dict = reports_collection.find_one({'qid': qid})
-    if not result_dict:
+    if not result_dict or not ("arsc_strings" in result_dict.keys()):
         apk = APK(qid + '.apk')
         package_name = apk.get_package()
         application_name = apk.get_app_name()
         version_name = apk.get_androidversion_name()
         version_code = apk.get_androidversion_code()
         target_sdk_version = apk.get_target_sdk_version()
-        sha1 = apk.get_certificate(apk.get_signature_name()).sha1_fingerprint
+
+        try:
+            arsc_parser = ARSCParser(apk.get_file("resources.arsc"))
+            arsc_json = json.dumps(arsc_parser.get_resolved_strings())
+            arsc_strings = json.loads(arsc_json)
+        except Exception as e:
+            print(e)
+            arsc_strings = []
+
+        try:
+            sha1 = apk.get_certificate(apk.get_signature_name()).sha1_fingerprint
+        except:
+            sha1 = ""
         permissions = apk.get_permissions()
         activities = apk.get_activities()
         architecture = {
@@ -272,6 +301,7 @@ def app_info():
             'SHA1': sha1,
             'permissions': permissions,
             'activities': activities,
+            'arsc_strings': arsc_strings,
         }
 
         # 保存到mongodb，如果存在则更新
@@ -360,12 +390,12 @@ def search_list():
     value = request.args.get('value')
     search_type = request.args.get('type')
     if search_type == 'md5':
-        result = lists_collection.find({'md5':  {'$regex': value, '$options': 'i'}})
+        result = lists_collection.find({'md5': {'$regex': value, '$options': 'i'}})
     elif search_type == 'name':
         # 名称用模糊搜索，不区分大小写
         result = lists_collection.find({'apkName': {'$regex': value, '$options': 'i'}})
     elif search_type == 'package':
-        result = lists_collection.find({'packageName':  {'$regex': value, '$options': 'i'}})
+        result = lists_collection.find({'packageName': {'$regex': value, '$options': 'i'}})
     else:
         result = None
 
